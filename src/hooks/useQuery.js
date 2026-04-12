@@ -1,0 +1,58 @@
+import { useState, useEffect, useCallback } from 'react'
+
+/**
+ * Hook genérico para buscar dados assíncronos.
+ * @param {Function} fn - Função assíncrona que retorna os dados
+ * @param {Array} deps - Dependências para refetch automático
+ */
+export function useQuery(fn, deps = []) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await fn()
+      setData(result)
+    } catch (err) {
+      setError(err)
+      console.error('useQuery error:', err)
+    } finally {
+      setLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+
+  useEffect(() => {
+    fetch()
+  }, [fetch])
+
+  return { data, loading, error, refetch: fetch }
+}
+
+/**
+ * Hook genérico para operações de escrita (create, update, delete).
+ * @param {Function} fn - Função assíncrona de mutação
+ */
+export function useMutation(fn) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const mutate = async (...args) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await fn(...args)
+      return result
+    } catch (err) {
+      setError(err)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { mutate, loading, error }
+}
