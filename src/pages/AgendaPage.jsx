@@ -252,9 +252,14 @@ export default function AgendaPage() {
               <button
                 onClick={async () => {
                   if (window.confirm('Tem certeza que deseja apagar este evento?')) {
-                    await excluirEvento.mutate(e.id)
-                    await refetch()
-                    setModo('calendario')
+                    try {
+                      await excluirEvento.mutate(e.id)
+                      await refetch()
+                      setModo('calendario')
+                    } catch (err) {
+                      alert('Erro ao apagar: ' + (err.message || 'Tente novamente'))
+                      }
+                    }
                   }
                 }}
                 className="flex-1 py-2 px-4 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors text-sm font-medium"

@@ -63,6 +63,7 @@ export const eventosService = {
       },
 
       async excluir(id) {
+        await supabase.from('faturas').delete().eq('evento_id', id)
               const { error } = await supabase
                 .from('eventos')
                 .delete()
