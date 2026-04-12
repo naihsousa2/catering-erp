@@ -260,7 +260,6 @@ export default function AgendaPage() {
                       alert('Erro ao apagar: ' + (err.message || 'Tente novamente'))
                       }
                     }
-                  }
                 }}
                 className="flex-1 py-2 px-4 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors text-sm font-medium"
               >
