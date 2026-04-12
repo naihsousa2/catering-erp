@@ -435,7 +435,7 @@ function EditarEventoForm({ evento, clientes, onSalvar, onCancelar }) {
     </div>
   )
 }
-\nfunction FaturamentoForm({ evento, onSalvar, onCancelar }) {
+function FaturamentoForm({ evento, onSalvar, onCancelar }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     vencimento: '',
