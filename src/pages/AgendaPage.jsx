@@ -399,7 +399,43 @@ function NovoEventoForm({ clientes, onSalvar, onCancelar }) {
   )
 }
 
-function EditarEventoForm({ evento, clientes, onSalvar, onCancelar }) {\n  const [form, setForm] = useState({\n    cliente_id: evento.cliente_id || '',\n    data_evento: evento.data_evento || '',\n    local: evento.local || '',\n    pax: evento.pax || '',\n    valor_total: evento.valor_total || '',\n    valor_sinal: evento.valor_sinal || '',\n    cardapio_obs: evento.cardapio_obs || '',\n    status: evento.status || 'aguardando'\n  })\n  const [loading, setLoading] = useState(false)\n  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))\n  const handleSubmit = async (e) => {\n    e.preventDefault()\n    setLoading(true)\n    try {\n      await onSalvar({ ...form, pax: form.pax ? parseInt(form.pax) : null, valor_total: form.valor_total ? parseFloat(form.valor_total) : 0, valor_sinal: form.valor_sinal ? parseFloat(form.valor_sinal) : 0 })\n    } finally { setLoading(false) }\n  }\n  return (\n    <div className="p-4 space-y-4 pb-6">\n      <button onClick={onCancelar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>\n      <h2 className="font-bold text-gray-800 text-lg">Editar Evento</h2>\n      <form onSubmit={handleSubmit} className="space-y-3">\n        <div><label className="label">Cliente</label><select className="input" value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>\n        <div><label className="label">Data do evento</label><input type="date" className="input" value={form.data_evento} onChange={e => set('data_evento', e.target.value)} required /></div>\n        <div><label className="label">Local</label><input type="text" className="input" value={form.local} onChange={e => set('local', e.target.value)} placeholder="Endereço do evento" /></div>\n        <div className="grid grid-cols-2 gap-3"><div><label className="label">Convidados</label><input type="number" className="input" value={form.pax} onChange={e => set('pax', e.target.value)} placeholder="0" /></div><div><label className="label">Status</label><select className="input" value={form.status} onChange={e => set('status', e.target.value)}><option value="aguardando">Aguardando</option><option value="confirmado">Confirmado</option><option value="faturado">Faturado</option><option value="recebido">Recebido</option><option value="cancelado">Cancelado</option></select></div></div>\n        <div className="grid grid-cols-2 gap-3"><div><label className="label">Valor total (R$)</label><input type="number" step="0.01" className="input" value={form.valor_total} onChange={e => set('valor_total', e.target.value)} placeholder="0,00" /></div><div><label className="label">Sinal (R$)</label><input type="number" step="0.01" className="input" value={form.valor_sinal} onChange={e => set('valor_sinal', e.target.value)} placeholder="0,00" /></div></div>\n        <div><label className="label">Cardápio / Observações</label><textarea className="input" rows={3} value={form.cardapio_obs} onChange={e => set('cardapio_obs', e.target.value)} placeholder="Cardápio, restrições alimentares, etc." /></div>\n        <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Salvando...' : 'Salvar alterações'}</button>\n      </form>\n    </div>\n  )\n}\n\nfunction FaturamentoForm({ evento, onSalvar, onCancelar }) {
+function EditarEventoForm({ evento, clientes, onSalvar, onCancelar }) {
+  const [form, setForm] = useState({
+    cliente_id: evento.cliente_id || '',
+    data_evento: evento.data_evento || '',
+    local: evento.local || '',
+    pax: evento.pax || '',
+    valor_total: evento.valor_total || '',
+    valor_sinal: evento.valor_sinal || '',
+    cardapio_obs: evento.cardapio_obs || '',
+    status: evento.status || 'aguardando'
+  })
+  const [loading, setLoading] = useState(false)
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await onSalvar({ ...form, pax: form.pax ? parseInt(form.pax) : null, valor_total: form.valor_total ? parseFloat(form.valor_total) : 0, valor_sinal: form.valor_sinal ? parseFloat(form.valor_sinal) : 0 })
+    } finally { setLoading(false) }
+  }
+  return (
+    <div className="p-4 space-y-4 pb-6">
+      <button onClick={onCancelar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>
+      <h2 className="font-bold text-gray-800 text-lg">Editar Evento</h2>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div><label className="label">Cliente</label><select className="input" value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+        <div><label className="label">Data do evento</label><input type="date" className="input" value={form.data_evento} onChange={e => set('data_evento', e.target.value)} required /></div>
+        <div><label className="label">Local</label><input type="text" className="input" value={form.local} onChange={e => set('local', e.target.value)} placeholder="Endereço do evento" /></div>
+        <div className="grid grid-cols-2 gap-3"><div><label className="label">Convidados</label><input type="number" className="input" value={form.pax} onChange={e => set('pax', e.target.value)} placeholder="0" /></div><div><label className="label">Status</label><select className="input" value={form.status} onChange={e => set('status', e.target.value)}><option value="aguardando">Aguardando</option><option value="confirmado">Confirmado</option><option value="faturado">Faturado</option><option value="recebido">Recebido</option><option value="cancelado">Cancelado</option></select></div></div>
+        <div className="grid grid-cols-2 gap-3"><div><label className="label">Valor total (R$)</label><input type="number" step="0.01" className="input" value={form.valor_total} onChange={e => set('valor_total', e.target.value)} placeholder="0,00" /></div><div><label className="label">Sinal (R$)</label><input type="number" step="0.01" className="input" value={form.valor_sinal} onChange={e => set('valor_sinal', e.target.value)} placeholder="0,00" /></div></div>
+        <div><label className="label">Cardápio / Observações</label><textarea className="input" rows={3} value={form.cardapio_obs} onChange={e => set('cardapio_obs', e.target.value)} placeholder="Cardápio, restrições alimentares, etc." /></div>
+        <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Salvando...' : 'Salvar alterações'}</button>
+      </form>
+    </div>
+  )
+}
+\nfunction FaturamentoForm({ evento, onSalvar, onCancelar }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     vencimento: '',
