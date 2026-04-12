@@ -25,6 +25,8 @@ export default function AgendaPage() {
   const mudarStatus = useMutation(({ id, status }) => eventosService.mudarStatus(id, status))
   const criarEvento = useMutation((evento) => eventosService.criar(evento))
   const criarFatura = useMutation((dados) => faturasService.criar(dados))
+    const atualizarEvento = useMutation(({ id, dados }) => eventosService.atualizar(id, dados))
+      const excluirEvento = useMutation((id) => eventosService.excluir(id))
 
   // Mapa de dia → eventos
   const eventosPorDia = useMemo(() => {
@@ -240,7 +242,28 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Gerar faturamento */}
+                    <div className="flex gap-2">
+              <button
+                onClick={() => setModo('editarEvento')}
+                className="flex-1 py-2 px-4 rounded-xl border border-orange-300 text-orange-600 hover:bg-orange-50 transition-colors text-sm font-medium"
+              >
+                Editar evento
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Tem certeza que deseja apagar este evento?')) {
+                    await excluirEvento.mutate(e.id)
+                    await refetch()
+                    setModo('calendario')
+                  }
+                }}
+                className="flex-1 py-2 px-4 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors text-sm font-medium"
+              >
+                Apagar evento
+              </button>
+            </div>
+
+            {/* Gerar faturamento */}
         {e.status === 'confirmado' && !e.faturas?.id && (
           <button
             onClick={() => setModo('faturamento')}
@@ -260,6 +283,21 @@ export default function AgendaPage() {
       await refetch()
       setModo('calendario')
     }} onCancelar={() => setModo('calendario')} />
+  }
+
+  // Editar evento
+  if (modo === 'editarEvento' && eventoSelecionado) {
+    return <EditarEventoForm
+      evento={eventoSelecionado}
+      clientes={clientes || []}
+      onSalvar={async (dados) => {
+        await atualizarEvento.mutate({ id: eventoSelecionado.id, dados })
+        await refetch()
+        setEventoSelecionado(prev => ({ ...prev, ...dados }))
+        setModo('detalhe')
+      }}
+      onCancelar={() => setModo('detalhe')}
+    />
   }
 
   // Faturamento
@@ -361,7 +399,7 @@ function NovoEventoForm({ clientes, onSalvar, onCancelar }) {
   )
 }
 
-function FaturamentoForm({ evento, onSalvar, onCancelar }) {
+function EditarEventoForm({ evento, clientes, onSalvar, onCancelar }) {\n  const [form, setForm] = useState({\n    cliente_id: evento.cliente_id || '',\n    data_evento: evento.data_evento || '',\n    local: evento.local || '',\n    pax: evento.pax || '',\n    valor_total: evento.valor_total || '',\n    valor_sinal: evento.valor_sinal || '',\n    cardapio_obs: evento.cardapio_obs || '',\n    status: evento.status || 'aguardando'\n  })\n  const [loading, setLoading] = useState(false)\n  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))\n  const handleSubmit = async (e) => {\n    e.preventDefault()\n    setLoading(true)\n    try {\n      await onSalvar({ ...form, pax: form.pax ? parseInt(form.pax) : null, valor_total: form.valor_total ? parseFloat(form.valor_total) : 0, valor_sinal: form.valor_sinal ? parseFloat(form.valor_sinal) : 0 })\n    } finally { setLoading(false) }\n  }\n  return (\n    <div className="p-4 space-y-4 pb-6">\n      <button onClick={onCancelar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>\n      <h2 className="font-bold text-gray-800 text-lg">Editar Evento</h2>\n      <form onSubmit={handleSubmit} className="space-y-3">\n        <div><label className="label">Cliente</label><select className="input" value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>\n        <div><label className="label">Data do evento</label><input type="date" className="input" value={form.data_evento} onChange={e => set('data_evento', e.target.value)} required /></div>\n        <div><label className="label">Local</label><input type="text" className="input" value={form.local} onChange={e => set('local', e.target.value)} placeholder="Endereço do evento" /></div>\n        <div className="grid grid-cols-2 gap-3"><div><label className="label">Convidados</label><input type="number" className="input" value={form.pax} onChange={e => set('pax', e.target.value)} placeholder="0" /></div><div><label className="label">Status</label><select className="input" value={form.status} onChange={e => set('status', e.target.value)}><option value="aguardando">Aguardando</option><option value="confirmado">Confirmado</option><option value="faturado">Faturado</option><option value="recebido">Recebido</option><option value="cancelado">Cancelado</option></select></div></div>\n        <div className="grid grid-cols-2 gap-3"><div><label className="label">Valor total (R$)</label><input type="number" step="0.01" className="input" value={form.valor_total} onChange={e => set('valor_total', e.target.value)} placeholder="0,00" /></div><div><label className="label">Sinal (R$)</label><input type="number" step="0.01" className="input" value={form.valor_sinal} onChange={e => set('valor_sinal', e.target.value)} placeholder="0,00" /></div></div>\n        <div><label className="label">Cardápio / Observações</label><textarea className="input" rows={3} value={form.cardapio_obs} onChange={e => set('cardapio_obs', e.target.value)} placeholder="Cardápio, restrições alimentares, etc." /></div>\n        <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Salvando...' : 'Salvar alterações'}</button>\n      </form>\n    </div>\n  )\n}\n\nfunction FaturamentoForm({ evento, onSalvar, onCancelar }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     vencimento: '',
