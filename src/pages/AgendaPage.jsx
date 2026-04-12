@@ -27,6 +27,10 @@ export default function AgendaPage() {
   const criarFatura = useMutation((dados) => faturasService.criar(dados))
     const atualizarEvento = useMutation(({ id, dados }) => eventosService.atualizar(id, dados))
       const excluirEvento = useMutation((id) => eventosService.excluir(id))
+  const excluirFatura = useMutation((eventoId) => faturasService.excluirPorEvento(eventoId))
+  const [nfInput, setNfInput] = useState('')
+  const [salvandoNF, setSalvandoNF] = useState(false)
+
 
   // Mapa de dia → eventos
   const eventosPorDia = useMemo(() => {
@@ -210,11 +214,48 @@ export default function AgendaPage() {
           )}
 
           {e.faturas && e.faturas.id && (
-            <div className="bg-orange-50 rounded-xl p-3 text-sm">
-              <p className="font-semibold text-orange-700">Fatura {e.faturas.numero}</p>
-              <p className="text-gray-600">Vencimento: {e.faturas.vencimento ? new Date(e.faturas.vencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
-              <p className="text-gray-600">Status: <span className={`badge-${e.faturas.status}`}>{e.faturas.status}</span></p>
-            </div>
+          <div className="bg-orange-50 rounded-xl p-3 text-sm space-y-2">
+            <p className="font-semibold text-orange-700">Fatura {e.faturas.numero}</p>
+            <p className="text-gray-600">Vencimento: {e.faturas.vencimento ? new Date(e.faturas.vencimento).toLocaleDateString('pt-BR') : '—'}</p>
+            <p className="text-gray-600">Status: <span className={`badge-${e.faturas.status}`}>{e.faturas.status}</span></p>
+            {e.faturas.numero_nf && (
+              <p className="text-gray-600">NF: <span className="font-semibold">{e.faturas.numero_nf}</span></p>
+            )}
+            {e.status === 'faturado' && (
+              <div className="space-y-1 mt-2">
+                <input
+                  type="text"
+                  placeholder="Número da NF"
+                  value={nfInput}
+                  onChange={ev => setNfInput(ev.target.value)}
+                  className="w-full border rounded px-2 py-1 text-xs"
+                />
+                <button
+                  onClick={async () => {
+                    if (!nfInput.trim()) return
+                    setSalvandoNF(true)
+                    try {
+                      await faturasService.atualizarNF(e.faturas.id, nfInput.trim())
+                      await refetch()
+                      setNfInput('')
+                    } finally {
+                      setSalvandoNF(false)
+                    }
+                  }}
+                  disabled={salvandoNF || !nfInput.trim()}
+                  className="w-full btn-primary text-xs py-1"
+                >
+                  {salvandoNF ? 'Salvando...' : 'Salvar NF'}
+                </button>
+                <button
+                  onClick={() => faturasService.abrirEmailFaturamento(eventoSelecionado)}
+                  className="w-full btn-secondary text-xs py-1"
+                >
+                  Reenviar e-mail
+                </button>
+              </div>
+            )}
+          </div>
           )}
         </div>
 
@@ -226,9 +267,26 @@ export default function AgendaPage() {
               <button
                 key={s}
                 onClick={async () => {
-                  await mudarStatus.mutate({ id: e.id, status: s })
-                  await refetch()
-                  setEventoSelecionado(prev => ({ ...prev, status: s }))
+              const statusAtual = e.status
+              const voltandoPraBase = ['faturado', 'recebido'].includes(statusAtual) && ['confirmado', 'aguardando'].includes(s)
+              const voltandoPraFaturado = statusAtual === 'recebido' && s === 'faturado'
+              if (voltandoPraBase && e.faturas?.id) {
+                if (!window.confirm(`Ao voltar para "${s}", a fatura ${e.faturas.numero} será removida. Continuar?`)) return
+                await excluirFatura.mutate(e.id)
+                await mudarStatus.mutate({ id: e.id, status: s })
+                await refetch()
+                setEventoSelecionado(prev => ({ ...prev, status: s, faturas: null }))
+                setNfInput('')
+              } else if (voltandoPraFaturado && e.faturas?.id) {
+                await faturasService.reverterParaFaturado(e.faturas.id)
+                await mudarStatus.mutate({ id: e.id, status: s })
+                await refetch()
+                setEventoSelecionado(prev => ({ ...prev, status: s, faturas: { ...prev.faturas, status: 'aguardando' } }))
+              } else {
+                await mudarStatus.mutate({ id: e.id, status: s })
+                await refetch()
+                setEventoSelecionado(prev => ({ ...prev, status: s }))
+              }
                 }}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   e.status === s

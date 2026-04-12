@@ -45,6 +45,22 @@ export const faturasService = {
     await supabase.from('eventos').update({ status: 'recebido' }).eq('id', fatura.evento_id)
   },
 
+  async excluirPorEvento(eventoId) {
+    const { error } = await supabase.from('faturas').delete().eq('evento_id', eventoId)
+    if (error) throw error
+  },
+
+  async reverterParaFaturado(faturaId) {
+    const { error } = await supabase.from('faturas').update({ status: 'aguardando', recebida_em: null }).eq('id', faturaId)
+    if (error) throw error
+  },
+
+  async atualizarNF(faturaId, numeroNF) {
+    const { error } = await supabase.from('faturas').update({ numero_nf: numeroNF }).eq('id', faturaId)
+    if (error) throw error
+  },
+
+
   abrirEmailFaturamento({ evento, fatura }) {
     const cliente = evento.clientes
     const dataEvento = new Date(evento.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')
