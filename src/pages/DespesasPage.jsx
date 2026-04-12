@@ -6,7 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-const CATEGORIAS = ['Insumos', 'Embalagens', 'Transporte', 'Energia', 'Mão de obra', 'Água', 'Gás', 'Impostos', 'Honorários Contábeis', 'Telefonia', 'Manut. Maquinas e Equip.', 'Manutenção Veículos', 'Consórcio', 'Despesa Bancária', 'Investimentos', 'Alimentação/restaurantes', 'Internet', 'IPTU', 'Educação', 'Esportes', 'Saúde', 'Streaming', 'Empréstimos', 'Roupas/Calç.', 'Manutenção Casa', 'Presentes', 'Entretenimento', 'Seguro Casa', 'Despesas Judiciais' ]
+const CATEGORIAS = ['Insumos', 'Embalagens', 'Transporte', 'Energia', 'Mão de obra', 'Água', 'Gás', 'Impostos', 'Honorários Contábeis', 'Telefonia', 'Manut. Maquinas e Equip.', 'Manutenção Veículos', 'Consórcio', 'Despesa Bancária', 'Investimentos', 'Alimentação/restaurantes', 'Internet', 'IPTU', 'Educação', 'Esportes', 'Saúde', 'Streaming', 'Empréstimos', 'Roupas/Calç.', 'Manutenção Casa', 'Presentes', 'Entretenimento', 'Seguro Casa', 'Despesas Judiciais']
 const CLASSIFICACOES = [
   { value: 'empresa',  label: 'Empresa (100%)' },
   { value: 'casa',     label: 'Casa (100%)' },
