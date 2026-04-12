@@ -307,8 +307,9 @@ export default function AgendaPage() {
   // Faturamento
   if (modo === 'faturamento' && eventoSelecionado) {
     return <FaturamentoForm evento={eventoSelecionado} onSalvar={async (dados) => {
-      await criarFatura.mutate(dados)
+          const fatura = await criarFatura.mutate(dados)
       await refetch()
+                faturasService.abrirEmailFaturamento({ evento: eventoSelecionado, fatura })
       setModo('calendario')
     }} onCancelar={() => setModo('detalhe')} />
   }
