@@ -61,7 +61,7 @@ export const clientesService = {
       .map(c => ({
         ...c,
         totalFaturado: (c.eventos || [])
-          .filter(e => ['faturado', 'recebido'].includes(e.status))
+                        .filter(e => ['confirmado', 'faturado', 'recebido'].includes(e.status))
           .reduce((acc, e) => acc + (e.valor_total || 0), 0)
       }))
       .sort((a, b) => b.totalFaturado - a.totalFaturado)
