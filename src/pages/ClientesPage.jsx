@@ -8,9 +8,11 @@ export default function ClientesPage() {
   const [modo, setModo] = useState('lista') // 'lista' | 'novo' | 'detalhe'
   const [clienteSelecionado, setClienteSelecionado] = useState(null)
   const [busca, setBusca] = useState('')
+    const [tipoRanking, setTipoRanking] = useState('faturamento') // 'faturamento' | 'frequencia'
 
   const { data: clientes, refetch } = useQuery(() => clientesService.listar(), [])
   const { data: ranking } = useQuery(() => clientesService.topPorFaturamento(), [])
+    const { data: rankingFreq } = useQuery(() => clientesService.topPorFrequencia(), [])
   const criarCliente = useMutation((c) => clientesService.criar(c))
 
   const listaFiltrada = (clientes || []).filter(c =>
@@ -44,11 +46,17 @@ export default function ClientesPage() {
       </div>
 
       {/* Ranking (quando não há busca) */}
-      {!busca && ranking && ranking.length > 0 && (
+              {!busca && (ranking?.length > 0 || rankingFreq?.length > 0) && ()}
         <div className="card">
-          <p className="text-sm font-semibold text-gray-700 mb-3">🏆 Top clientes</p>
+                      <div className="flex items-center justify-between mb-3">
+                                      <p className="text-sm font-semibold text-gray-700">🏆 Top clientes</p>
+                                                    <div className="flex gap-1">
+                                                                    <button onClick={() => setTipoRanking('faturamento')} className={`text-xs px-2 py-1 rounded-full border transition-colors ${tipoRanking === 'faturamento' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-200'}`}>💰 Faturamento</button>
+                                                                                    <button onClick={() => setTipoRanking('frequencia')} className={`text-xs px-2 py-1 rounded-full border transition-colors ${tipoRanking === 'frequencia' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-200'}`}>🔢 Frequência</button>
+                                                                                                  </div>
+                                                                                                              </div>
           <div className="space-y-2">
-            {ranking.slice(0, 5).map((c, i) => (
+                        {(tipoRanking === 'faturamento' ? (ranking || []) : (rankingFreq || [])).slice(0, 5).map((c, i) => ())}
               <div
                 key={c.id}
                 className="flex items-center gap-3 cursor-pointer"
@@ -64,7 +72,10 @@ export default function ClientesPage() {
                   <p className="text-sm font-medium text-gray-800">{c.nome}</p>
                   {c.nome_contato && <p className="text-xs text-gray-400">{c.nome_contato}</p>}
                 </div>
-                <p className="text-sm font-bold text-green-600">{fmt(c.totalFaturado)}</p>
+                              {tipoRanking === 'faturamento'
+                                              ? <p className="text-sm font-bold text-green-600">{fmt(c.totalFaturado)}</p>
+                                                              : <p className="text-sm font-bold text-blue-600">{c.totalEventos} evento{c.totalEventos !== 1 ? 's' : ''}</p>
+                                                                            }}
               </div>
             ))}
           </div>
