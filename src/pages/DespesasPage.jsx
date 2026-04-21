@@ -17,6 +17,13 @@ const CLASSIFICACOES = [
 ]
 const CORES = ['#f97316','#3b82f6','#22c55e','#a855f7','#ef4444','#eab308','#6b7280']
 
+// Retorna o percentual da parte "empresa" a partir da classificação escolhida.
+function pctEmpresaDe(classificacao, rateioManual) {
+  if (classificacao === 'rateioM') return parseInt(rateioManual) || 0
+  const mapa = { empresa: 100, casa: 0, rateio50: 50, rateio70: 70, rateio30: 30 }
+  return mapa[classificacao] ?? 50
+}
+
 export default function DespesasPage() {
   const hoje = new Date()
   const [mes, setMes] = useState(hoje.getMonth() + 1)
@@ -25,13 +32,14 @@ export default function DespesasPage() {
   const [modo, setModo] = useState('lista') // 'lista' | 'novo'
   const [editando, setEditando] = useState(null)
   const [categoriasAbertas, setCategoriasAbertas] = useState({})
+  const [erroGlobal, setErroGlobal] = useState('')
 
   const { data: despesas, refetch } = useQuery(
     () => despesasService.listar({ mes, ano, classificacao: filtroClass }),
     [mes, ano, filtroClass]
   )
 
-  const { data: resumo } = useQuery(
+  const { data: resumo, refetch: refetchResumo } = useQuery(
     () => despesasService.resumo(mes, ano),
     [mes, ano]
   )
@@ -62,8 +70,14 @@ export default function DespesasPage() {
 
   const handleExcluir = async (id) => {
     if (!confirm('Excluir esta despesa?')) return
-    await excluirDespesa.mutate(id)
-    await refetch()
+    try {
+      await excluirDespesa.mutateAsync(id)
+      await refetch()
+      await refetchResumo()
+    } catch (err) {
+      console.error('[DespesasPage] erro ao excluir:', err)
+      setErroGlobal(`Erro ao excluir: ${err?.message || 'desconhecido'}`)
+    }
   }
 
   if (modo === 'novo' || editando) {
@@ -71,12 +85,14 @@ export default function DespesasPage() {
       <NovaDespesaForm
         inicial={editando}
         onSalvar={async (dados) => {
+          // Não engole erros: deixa o form exibir
           if (editando) {
-            await atualizarDespesa.mutate({ id: editando.id, d: dados })
+            await atualizarDespesa.mutateAsync({ id: editando.id, d: dados })
           } else {
-            await criarDespesa.mutate(dados)
+            await criarDespesa.mutateAsync(dados)
           }
           await refetch()
+          await refetchResumo()
           setModo('lista')
           setEditando(null)
         }}
@@ -91,6 +107,13 @@ export default function DespesasPage() {
 
   return (
     <div className="p-4 space-y-4 pb-6">
+      {erroGlobal && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm flex justify-between items-start">
+          <span>❌ {erroGlobal}</span>
+          <button onClick={() => setErroGlobal('')} className="ml-2 text-red-400">✕</button>
+        </div>
+      )}
+
       {/* Navegação mês */}
       <div className="flex items-center justify-between">
         <button onClick={() => navMes(-1)} className="p-2 rounded-lg hover:bg-gray-100">‹</button>
@@ -239,6 +262,7 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrErro, setOcrErro] = useState('')
   const [loading, setLoading] = useState(false)
+  const [erroSalvar, setErroSalvar] = useState('')
   const [form, setForm] = useState({
     descricao: inicial?.descricao || '',
     valor: inicial?.valor?.toString() || '',
@@ -276,22 +300,33 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setErroSalvar('')
     setLoading(true)
     try {
+      const valor = parseFloat(form.valor) || 0
+      const pctEmp = pctEmpresaDe(form.classificacao, form.rateio_empresa_pct)
+      const valor_empresa = Math.round(((valor * pctEmp) / 100) * 100) / 100
+      const valor_casa = Math.round(((valor * (100 - pctEmp)) / 100) * 100) / 100
+
       await onSalvar({
         ...form,
-        valor: parseFloat(form.valor),
-        rateio_empresa_pct: parseInt(form.rateio_empresa_pct),
+        valor,
+        rateio_empresa_pct: pctEmp,
+        valor_empresa,
+        valor_casa,
       })
+    } catch (err) {
+      console.error('[DespesasPage] erro ao salvar:', err)
+      const msg = err?.message || err?.hint || err?.details || 'Erro desconhecido ao salvar'
+      const code = err?.code ? ` (${err.code})` : ''
+      setErroSalvar(`${msg}${code}`)
     } finally {
       setLoading(false)
     }
   }
 
   const isRateioManual = form.classificacao === 'rateioM'
-  const pct = isRateioManual ? form.rateio_empresa_pct : {
-    empresa: 100, casa: 0, rateio50: 50, rateio70: 70, rateio30: 30
-  }[form.classificacao] ?? 50
+  const pct = pctEmpresaDe(form.classificacao, form.rateio_empresa_pct)
 
   const valEmpresa = form.valor ? ((parseFloat(form.valor) * pct) / 100).toFixed(2) : '—'
   const valCasa = form.valor ? ((parseFloat(form.valor) * (100 - pct)) / 100).toFixed(2) : '—'
@@ -300,6 +335,12 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
     <div className="p-4 space-y-4 pb-6">
       <button onClick={onCancelar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>
       <h2 className="font-bold text-gray-800 text-lg">{inicial ? 'Editar despesa' : 'Nova despesa'}</h2>
+
+      {erroSalvar && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+          ❌ {erroSalvar}
+        </div>
+      )}
 
       {/* OCR */}
       {!inicial && (

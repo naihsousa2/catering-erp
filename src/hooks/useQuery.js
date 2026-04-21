@@ -35,12 +35,16 @@ export function useQuery(fn, deps = []) {
 /**
  * Hook genérico para operações de escrita (create, update, delete).
  * @param {Function} fn - Função assíncrona de mutação
+ *
+ * Retorna `mutate` e `mutateAsync` (alias) — ambos retornam Promise.
+ * No caller, use sempre `await mutateAsync(payload)` dentro de try/catch
+ * para que erros de validação/CHECK/RLS do Supabase apareçam na tela.
  */
 export function useMutation(fn) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const mutate = async (...args) => {
+  const mutate = useCallback(async (...args) => {
     setLoading(true)
     setError(null)
     try {
@@ -48,11 +52,12 @@ export function useMutation(fn) {
       return result
     } catch (err) {
       setError(err)
+      console.error('useMutation error:', err)
       throw err
     } finally {
       setLoading(false)
     }
-  }
+  }, [fn])
 
-  return { mutate, loading, error }
+  return { mutate, mutateAsync: mutate, loading, error }
 }
