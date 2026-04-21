@@ -71,8 +71,7 @@ create table if not exists public.despesas (
   descricao           text not null,
   valor               numeric(12,2) not null,
   data                date not null,
-  categoria           text not null default 'Outros'
-                        check (categoria in ('Insumos','Embalagens','Transporte','Energia','Mão de obra','Comunicação','Outros')),
+  categoria           text not null default 'Outros',
   classificacao       text not null default 'empresa'
                         check (classificacao in ('empresa','casa','rateio50','rateio70','rateio30','rateioM')),
   rateio_empresa_pct  integer not null default 100 check (rateio_empresa_pct between 0 and 100),
