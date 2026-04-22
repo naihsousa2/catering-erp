@@ -66,7 +66,7 @@ export const clientesService = {
       }))
       .sort((a, b) => b.totalFaturado - a.totalFaturado)
       .slice(0, 10)
-  }
+  },
 
     async topPorFrequencia() {
           const { data, error } = await supabase
