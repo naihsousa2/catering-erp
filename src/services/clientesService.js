@@ -68,20 +68,19 @@ export const clientesService = {
       .slice(0, 10)
   },
 
-    async topPorFrequencia() {
-          const { data, error } = await supabase
-                .from('clientes')
-                      .select('id, nome, nome_contato, eventos(id, status)')
-                            .eq('ativo', true)
-                                if (error) throw error
-                                    return data
-                                          .map(c => ({
-                                                  ...c,
-                                                          totalEventos: (c.eventos || []).filter(e => e.status !== 'cancelado').length
-                                                                }))
-                                                                      .filter(c => c.totalEventos > 0)
-                                                                            .sort((a, b) => b.totalEventos - a.totalEventos)
-                                                                                  .slice(0, 10)
-                                                                                    }
-    }
+  async topPorFrequencia() {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('id, nome, nome_contato, eventos(id, status)')
+      .eq('ativo', true)
+    if (error) throw error
+    return data
+      .map(c => ({
+        ...c,
+        totalEventos: (c.eventos || []).filter(e => e.status !== 'cancelado').length
+      }))
+      .filter(c => c.totalEventos > 0)
+      .sort((a, b) => b.totalEventos - a.totalEventos)
+      .slice(0, 10)
+  }
 }
