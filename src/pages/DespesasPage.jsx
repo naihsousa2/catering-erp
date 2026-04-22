@@ -33,6 +33,7 @@ export default function DespesasPage() {
   const [editando, setEditando] = useState(null)
   const [categoriasAbertas, setCategoriasAbertas] = useState({})
   const [erroGlobal, setErroGlobal] = useState('')
+  const [visao, setVisao] = useState('total')
 
   const { data: despesas, refetch } = useQuery(
     () => despesasService.listar({ mes, ano, classificacao: filtroClass }),
@@ -48,6 +49,8 @@ export default function DespesasPage() {
   const atualizarDespesa = useMutation(({ id, d }) => despesasService.atualizar(id, d))
   const excluirDespesa = useMutation((id) => despesasService.excluir(id))
 
+// Seletor de valor conforme visão selecionada (total/empresa/casa)
+const getValor = (d) => visao === 'empresa' ? (Number(d.valor_empresa)||0) : visao === 'casa' ? (Number(d.valor_casa)||0) : (Number(d.valor)||0)
   // Agrupar por categoria
   const porCategoria = useMemo(() => {
     const mapa = {}
@@ -101,9 +104,7 @@ export default function DespesasPage() {
     )
   }
 
-  const pieData = resumo?.porCategoria?.map(({ categoria, valor }, i) => ({
-    name: categoria, value: valor, fill: CORES[i % CORES.length]
-  })) || []
+  const pieData = Object.entries(porCategoria).map(([categoria, itens], i) => ({ name: categoria, value: itens.reduce((a, d) => a + getValor(d), 0), fill: CORES[i % CORES.length] }))
 
   return (
     <div className="p-4 space-y-4 pb-6">
@@ -126,25 +127,25 @@ export default function DespesasPage() {
       {/* Métricas */}
       {resumo && (
         <div className="grid grid-cols-3 gap-2">
-          <div className="card text-center">
-            <p className="text-xs text-gray-400">Total</p>
-            <p className="text-sm font-bold text-gray-800">{fmt(resumo.totalGeral)}</p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-400">Empresa</p>
-            <p className="text-sm font-bold text-orange-600">{fmt(resumo.totalEmpresa)}</p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-400">Casa</p>
-            <p className="text-sm font-bold text-blue-600">{fmt(resumo.totalCasa)}</p>
-          </div>
+                    <button type="button" onClick={() => setVisao('total')} className={visao==='total' ? 'card text-center w-full ring-2 ring-blue-500' : 'card text-center w-full hover:bg-gray-50'}>
+                                  <p className="text-xs text-gray-400">Total</p>
+                                              <p className="text-sm font-bold text-gray-800">{fmt(resumo.totalGeral)}</p>
+                                                        </button>
+                    <button type="button" onClick={() => setVisao('empresa')} className={visao==='empresa' ? 'card text-center w-full ring-2 ring-orange-500' : 'card text-center w-full hover:bg-gray-50'}>
+                                  <p className="text-xs text-gray-400">Empresa</p>
+                                              <p className="text-sm font-bold text-orange-600">{fmt(resumo.totalEmpresa)}</p>
+                                                        </button>
+          <button type="button" onClick={() => setVisao('casa')} className={visao==='casa' ? 'card text-center w-full ring-2 ring-blue-500' : 'card text-center w-full hover:bg-gray-50'}>
+                        <p className="text-xs text-gray-400">Casa</p>
+                                    <p className="text-sm font-bold text-blue-600">{fmt(resumo.totalCasa)}</p>
+                                              </button>
         </div>
       )}
 
       {/* Gráfico pizza */}
       {pieData.length > 0 && (
         <div className="card">
-          <p className="text-sm font-semibold text-gray-700 mb-2">Por categoria</p>
+          <p className="text-sm font-semibold text-gray-700 mb-2">Por categoria {visao==='empresa' ? '(Empresa)' : visao==='casa' ? '(Casa)' : '(Total)'}</p>
           <div className="flex items-center gap-4">
             <ResponsiveContainer width={120} height={120}>
               <PieChart>
@@ -191,7 +192,7 @@ export default function DespesasPage() {
         )}
         {Object.entries(porCategoria).map(([cat, itens]) => {
           const aberta = categoriasAbertas[cat] !== false // aberta por padrão
-          const total = itens.reduce((a, d) => a + (d.valor_empresa || 0), 0)
+          const total = itens.reduce((a, d) => a + getValor(d), 0)
           return (
             <div key={cat} className="card p-0 overflow-hidden">
               <button
