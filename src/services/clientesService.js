@@ -4,7 +4,7 @@ export const clientesService = {
   async listar() {
     const { data, error } = await supabase
       .from('clientes')
-      .select('*, eventos(id, valor_total, status)')
+      .select('*, eventos(id, data_evento, valor_total, status)')
       .eq('ativo', true)
       .order('nome')
     if (error) throw error
