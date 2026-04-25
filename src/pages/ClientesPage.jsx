@@ -8,11 +8,11 @@ export default function ClientesPage() {
   const [modo, setModo] = useState('lista') // 'lista' | 'novo' | 'detalhe'
   const [clienteSelecionado, setClienteSelecionado] = useState(null)
   const [busca, setBusca] = useState('')
-    const [tipoRanking, setTipoRanking] = useState('faturamento') // 'faturamento' | 'frequencia'
+  const [tipoRanking, setTipoRanking] = useState('faturamento') // 'faturamento' | 'frequencia'
 
   const { data: clientes, refetch } = useQuery(() => clientesService.listar(), [])
   const { data: ranking } = useQuery(() => clientesService.topPorFaturamento(), [])
-    const { data: rankingFreq } = useQuery(() => clientesService.topPorFrequencia(), [])
+  const { data: rankingFreq } = useQuery(() => clientesService.topPorFrequencia(), [])
   const criarCliente = useMutation((c) => clientesService.criar(c))
 
   const listaFiltrada = (clientes || []).filter(c =>
@@ -29,7 +29,17 @@ export default function ClientesPage() {
   }
 
   if (modo === 'detalhe' && clienteSelecionado) {
-    return <DetalheCliente cliente={clienteSelecionado} onVoltar={() => setModo('lista')} />
+    return (
+      <DetalheCliente
+        cliente={clienteSelecionado}
+        onVoltar={() => setModo('lista')}
+        onAtualizar={async (id, campos) => {
+          const atualizado = await clientesService.atualizar(id, campos)
+          setClienteSelecionado(prev => ({ ...prev, ...atualizado }))
+          await refetch()
+        }}
+      />
+    )
   }
 
   return (
@@ -116,10 +126,84 @@ export default function ClientesPage() {
   )
 }
 
-function DetalheCliente({ cliente: c, onVoltar }) {
+function DetalheCliente({ cliente: c, onVoltar, onAtualizar }) {
+  const [editando, setEditando] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({
+    nome: c.nome || '',
+    nome_contato: c.nome_contato || '',
+    cpf_cnpj: c.cpf_cnpj || '',
+    inscricao_estadual: c.inscricao_estadual || '',
+    telefone: c.telefone || '',
+    email: c.email || '',
+    endereco: c.endereco || '',
+  })
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleSalvar = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await onAtualizar(c.id, form)
+      setEditando(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (editando) {
+    return (
+      <div className="p-4 space-y-4 pb-6">
+        <button onClick={() => setEditando(false)} className="text-orange-500 text-sm font-semibold">‹ Cancelar</button>
+        <h2 className="font-bold text-gray-800 text-lg">Editar Cliente</h2>
+        <form onSubmit={handleSalvar} className="space-y-3">
+          <div>
+            <label className="label">Nome *</label>
+            <input className="input" value={form.nome} onChange={e => set('nome', e.target.value)} required placeholder="Razão social ou nome completo" />
+          </div>
+          <div>
+            <label className="label">Contato</label>
+            <input className="input" value={form.nome_contato} onChange={e => set('nome_contato', e.target.value)} placeholder="Pessoa de referência" />
+          </div>
+          <div>
+            <label className="label">CPF/CNPJ</label>
+            <input className="input" value={form.cpf_cnpj} onChange={e => set('cpf_cnpj', e.target.value)} placeholder="000.000.000-00" />
+          </div>
+          <div>
+            <label className="label">Inscrição Estadual</label>
+            <input className="input" value={form.inscricao_estadual} onChange={e => set('inscricao_estadual', e.target.value)} placeholder="000.000.000.000" />
+          </div>
+          <div>
+            <label className="label">Telefone</label>
+            <input className="input" type="tel" value={form.telefone} onChange={e => set('telefone', e.target.value)} placeholder="(00) 00000-0000" />
+          </div>
+          <div>
+            <label className="label">E-mail</label>
+            <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="cliente@email.com" />
+          </div>
+          <div>
+            <label className="label">Endereço</label>
+            <input className="input" value={form.endereco} onChange={e => set('endereco', e.target.value)} placeholder="Rua, número, cidade" />
+          </div>
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? 'Salvando...' : 'Salvar alterações'}
+          </button>
+        </form>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 space-y-4 pb-6">
-      <button onClick={onVoltar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>
+      <div className="flex items-center justify-between">
+        <button onClick={onVoltar} className="text-orange-500 text-sm font-semibold">‹ Voltar</button>
+        <button
+          onClick={() => setEditando(true)}
+          className="text-sm font-semibold text-orange-500 border border-orange-400 rounded-lg px-3 py-1 hover:bg-orange-50 transition-colors"
+        >
+          ✏️ Editar
+        </button>
+      </div>
       <div className="card space-y-3">
         <h2 className="font-bold text-gray-800 text-lg">{c.nome}</h2>
         {c.nome_contato && (
@@ -132,6 +216,12 @@ function DetalheCliente({ cliente: c, onVoltar }) {
           <div>
             <p className="label">CPF/CNPJ</p>
             <p className="text-sm text-gray-700">{c.cpf_cnpj}</p>
+          </div>
+        )}
+        {c.inscricao_estadual && (
+          <div>
+            <p className="label">Inscrição Estadual</p>
+            <p className="text-sm text-gray-700">{c.inscricao_estadual}</p>
           </div>
         )}
         {c.telefone && (
@@ -176,7 +266,7 @@ function DetalheCliente({ cliente: c, onVoltar }) {
 
 function NovoClienteForm({ onSalvar, onCancelar }) {
   const [form, setForm] = useState({
-    nome: '', nome_contato: '', cpf_cnpj: '', telefone: '', email: '', endereco: ''
+    nome: '', nome_contato: '', cpf_cnpj: '', inscricao_estadual: '', telefone: '', email: '', endereco: ''
   })
   const [loading, setLoading] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -203,6 +293,10 @@ function NovoClienteForm({ onSalvar, onCancelar }) {
         <div>
           <label className="label">CPF/CNPJ</label>
           <input className="input" value={form.cpf_cnpj} onChange={e => set('cpf_cnpj', e.target.value)} placeholder="000.000.000-00" />
+        </div>
+        <div>
+          <label className="label">Inscrição Estadual</label>
+          <input className="input" value={form.inscricao_estadual} onChange={e => set('inscricao_estadual', e.target.value)} placeholder="000.000.000.000" />
         </div>
         <div>
           <label className="label">Telefone</label>
