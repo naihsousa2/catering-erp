@@ -6,7 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-const CATEGORIAS = ['Insumos', 'Embalagens', 'Transporte', 'Energia', 'Mão de obra', 'Água', 'Gás', 'Impostos', 'Honorários Contábeis', 'Telefonia', 'Manut. Maquinas e Equip.', 'Manutenção Veículos', 'Consórcio', 'Despesa Bancária', 'Investimentos', 'Alimentação/restaurantes', 'Internet', 'IPTU', 'Educação', 'Esportes', 'Saúde', 'Streaming', 'Empréstimos', 'Roupas/Calç.', 'Manutenção Casa', 'Presentes', 'Entretenimento', 'Seguro Casa', 'Despesas Judiciais']
+const CATEGORIAS = ['Insumos', 'Agropecuária', 'Embalagens', 'Transporte', 'Energia', 'Mão de obra', 'Água', 'Gás', 'Impostos', 'Honorários Contábeis', 'Telefonia', 'Manut. Maquinas e Equip.', 'Manutenção Veículos', 'Consórcio', 'Despesa Bancária', 'Investimentos', 'Alimentação/restaurantes', 'Internet', 'IPTU', 'Educação', 'Esportes', 'Saúde', 'Streaming', 'Empréstimos', 'Roupas/Calç.', 'Manutenção Casa', 'Presentes', 'Entretenimento', 'Seguro Casa', 'Despesas Judiciais', 'Outros']
 const CLASSIFICACOES = [
   { value: 'empresa',  label: 'Empresa (100%)' },
   { value: 'casa',     label: 'Casa (100%)' },
@@ -22,6 +22,17 @@ function pctEmpresaDe(classificacao, rateioManual) {
   if (classificacao === 'rateioM') return parseInt(rateioManual) || 0
   const mapa = { empresa: 100, casa: 0, rateio50: 50, rateio70: 70, rateio30: 30 }
   return mapa[classificacao] ?? 50
+}
+
+// Soma N meses a uma data ISO (YYYY-MM-DD), respeitando último dia válido do mês.
+function addMonths(dataISO, n) {
+  const [y, m, d] = dataISO.split('-').map(Number)
+  const alvoMes = m - 1 + n
+  const targetYear = y + Math.floor(alvoMes / 12)
+  const targetMonth = ((alvoMes % 12) + 12) % 12
+  const ultimoDia = new Date(targetYear, targetMonth + 1, 0).getDate()
+  const finalDay = Math.min(d, ultimoDia)
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(finalDay).padStart(2, '0')}`
 }
 
 export default function DespesasPage() {
@@ -49,17 +60,21 @@ export default function DespesasPage() {
   const atualizarDespesa = useMutation(({ id, d }) => despesasService.atualizar(id, d))
   const excluirDespesa = useMutation((id) => despesasService.excluir(id))
 
-// Seletor de valor conforme visão selecionada (total/empresa/casa)
-const getValor = (d) => visao === 'empresa' ? (Number(d.valor_empresa)||0) : visao === 'casa' ? (Number(d.valor_casa)||0) : (Number(d.valor)||0)
-  // Agrupar por categoria
+  // Seletor de valor conforme visão selecionada (total/empresa/casa)
+  const getValor = (d) => visao === 'empresa' ? (Number(d.valor_empresa)||0) : visao === 'casa' ? (Number(d.valor_casa)||0) : (Number(d.valor)||0)
+
+  // Agrupar por categoria, ordenado pelo total (maior → menor)
   const porCategoria = useMemo(() => {
     const mapa = {}
     ;(despesas || []).forEach(d => {
       if (!mapa[d.categoria]) mapa[d.categoria] = []
       mapa[d.categoria].push(d)
     })
-    return mapa
-  }, [despesas])
+    const totalDe = (itens) => itens.reduce((a, d) => a + getValor(d), 0)
+    return Object.fromEntries(
+      Object.entries(mapa).sort(([, a], [, b]) => totalDe(b) - totalDe(a))
+    )
+  }, [despesas, visao])
 
   const toggleCategoria = (cat) => {
     setCategoriasAbertas(p => ({ ...p, [cat]: !p[cat] }))
@@ -91,6 +106,11 @@ const getValor = (d) => visao === 'empresa' ? (Number(d.valor_empresa)||0) : vis
           // Não engole erros: deixa o form exibir
           if (editando) {
             await atualizarDespesa.mutateAsync({ id: editando.id, d: dados })
+          } else if (Array.isArray(dados)) {
+            // Despesa parcelada: cria N lançamentos sequenciais
+            for (const parcela of dados) {
+              await criarDespesa.mutateAsync(parcela)
+            }
           } else {
             await criarDespesa.mutateAsync(dados)
           }
@@ -127,18 +147,18 @@ const getValor = (d) => visao === 'empresa' ? (Number(d.valor_empresa)||0) : vis
       {/* Métricas */}
       {resumo && (
         <div className="grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => setVisao('total')} className={visao==='total' ? 'card text-center w-full ring-2 ring-blue-500' : 'card text-center w-full hover:bg-gray-50'}>
-                                  <p className="text-xs text-gray-400">Total</p>
-                                              <p className="text-sm font-bold text-gray-800">{fmt(resumo.totalGeral)}</p>
-                                                        </button>
-                    <button type="button" onClick={() => setVisao('empresa')} className={visao==='empresa' ? 'card text-center w-full ring-2 ring-orange-500' : 'card text-center w-full hover:bg-gray-50'}>
-                                  <p className="text-xs text-gray-400">Empresa</p>
-                                              <p className="text-sm font-bold text-orange-600">{fmt(resumo.totalEmpresa)}</p>
-                                                        </button>
+          <button type="button" onClick={() => setVisao('total')} className={visao==='total' ? 'card text-center w-full ring-2 ring-blue-500' : 'card text-center w-full hover:bg-gray-50'}>
+            <p className="text-xs text-gray-400">Total</p>
+            <p className="text-sm font-bold text-gray-800">{fmt(resumo.totalGeral)}</p>
+          </button>
+          <button type="button" onClick={() => setVisao('empresa')} className={visao==='empresa' ? 'card text-center w-full ring-2 ring-orange-500' : 'card text-center w-full hover:bg-gray-50'}>
+            <p className="text-xs text-gray-400">Empresa</p>
+            <p className="text-sm font-bold text-orange-600">{fmt(resumo.totalEmpresa)}</p>
+          </button>
           <button type="button" onClick={() => setVisao('casa')} className={visao==='casa' ? 'card text-center w-full ring-2 ring-blue-500' : 'card text-center w-full hover:bg-gray-50'}>
-                        <p className="text-xs text-gray-400">Casa</p>
-                                    <p className="text-sm font-bold text-blue-600">{fmt(resumo.totalCasa)}</p>
-                                              </button>
+            <p className="text-xs text-gray-400">Casa</p>
+            <p className="text-sm font-bold text-blue-600">{fmt(resumo.totalCasa)}</p>
+          </button>
         </div>
       )}
 
@@ -273,6 +293,7 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
     rateio_empresa_pct: inicial?.rateio_empresa_pct ?? 50,
     estabelecimento: inicial?.estabelecimento || '',
     via_ocr: inicial?.via_ocr || false,
+    numero_parcelas: 1,
   })
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -304,18 +325,48 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
     setErroSalvar('')
     setLoading(true)
     try {
-      const valor = parseFloat(form.valor) || 0
+      const valorTotal = parseFloat(form.valor) || 0
       const pctEmp = pctEmpresaDe(form.classificacao, form.rateio_empresa_pct)
-      const valor_empresa = Math.round(((valor * pctEmp) / 100) * 100) / 100
-      const valor_casa = Math.round(((valor * (100 - pctEmp)) / 100) * 100) / 100
+      const parcelas = Math.max(1, parseInt(form.numero_parcelas) || 1)
 
-      await onSalvar({
-        ...form,
-        valor,
-        rateio_empresa_pct: pctEmp,
-        valor_empresa,
-        valor_casa,
-      })
+      // Não envia campos de UI ao banco
+      const { numero_parcelas, ...formLimpo } = form
+
+      if (inicial || parcelas <= 1) {
+        // Lançamento único (criação ou edição)
+        const valor_empresa = Math.round(((valorTotal * pctEmp) / 100) * 100) / 100
+        const valor_casa = Math.round(((valorTotal * (100 - pctEmp)) / 100) * 100) / 100
+        await onSalvar({
+          ...formLimpo,
+          valor: valorTotal,
+          rateio_empresa_pct: pctEmp,
+          valor_empresa,
+          valor_casa,
+        })
+      } else {
+        // Parcelado: divide o total em N parcelas, uma por mês
+        const valorParcela = Math.round((valorTotal / parcelas) * 100) / 100
+        // Última parcela absorve eventual diferença de centavos do arredondamento
+        const totalDistribuido = Math.round(valorParcela * (parcelas - 1) * 100) / 100
+        const valorUltima = Math.round((valorTotal - totalDistribuido) * 100) / 100
+
+        const lancamentos = Array.from({ length: parcelas }, (_, i) => {
+          const valor = i === parcelas - 1 ? valorUltima : valorParcela
+          const valor_empresa = Math.round(((valor * pctEmp) / 100) * 100) / 100
+          const valor_casa = Math.round(((valor * (100 - pctEmp)) / 100) * 100) / 100
+          return {
+            ...formLimpo,
+            descricao: `${form.descricao} (${i + 1}/${parcelas})`,
+            data: addMonths(form.data, i),
+            valor,
+            rateio_empresa_pct: pctEmp,
+            valor_empresa,
+            valor_casa,
+          }
+        })
+
+        await onSalvar(lancamentos)
+      }
     } catch (err) {
       console.error('[DespesasPage] erro ao salvar:', err)
       const msg = err?.message || err?.hint || err?.details || 'Erro desconhecido ao salvar'
@@ -391,6 +442,25 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
           </select>
         </div>
 
+        {!inicial && (
+          <div>
+            <label className="label">Número de parcelas</label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              className="input"
+              value={form.numero_parcelas}
+              onChange={e => set('numero_parcelas', e.target.value)}
+            />
+            {parseInt(form.numero_parcelas) > 1 && parseFloat(form.valor) > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {form.numero_parcelas}x de {fmt(parseFloat(form.valor) / parseInt(form.numero_parcelas))} — lançamentos serão criados a partir de {new Date(form.data + 'T00:00:00').toLocaleDateString('pt-BR')} nos meses subsequentes.
+              </p>
+            )}
+          </div>
+        )}
+
         {isRateioManual && (
           <div>
             <label className="label">Rateio empresa: {form.rateio_empresa_pct}% / Casa: {100 - form.rateio_empresa_pct}%</label>
@@ -415,7 +485,13 @@ function NovaDespesaForm({ inicial, onSalvar, onCancelar }) {
         )}
 
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? 'Salvando...' : inicial ? 'Salvar alterações' : 'Lançar despesa'}
+          {loading
+            ? 'Salvando...'
+            : inicial
+              ? 'Salvar alterações'
+              : parseInt(form.numero_parcelas) > 1
+                ? `Lançar ${form.numero_parcelas} parcelas`
+                : 'Lançar despesa'}
         </button>
       </form>
     </div>
